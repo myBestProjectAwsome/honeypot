@@ -131,5 +131,84 @@ class SimpleShell:
         
         logger.info(f"Session terminée - {self.client_ip}")
 
-        
+    def _prompt(self):
+        """la methode affiche le prompt"""
 
+        self.channel.send(b"root@server:~# ")
+
+    
+
+    def _execute(self, cmd):
+        """la methode simule une commande"""
+        parts = cmd.split()
+        if not parts:
+            return
+        
+        command = parts[0]
+        
+        # des commandes basiques
+        responses = {
+            'ls': 'Documents  Downloads  .ssh',
+            'pwd': '/root',
+            'whoami': 'root',
+            'uname': 'Linux server 5.15.0-52-generic x86_64',
+            'id': 'uid=0(root) gid=0(root) groups=0(root)',
+        }
+        
+        if command in responses:
+            self.channel.send((responses[command] + '\r\n').encode())
+        elif command in ['wget', 'curl']:
+            self.channel.send(b'Connection refused\r\n')
+        elif command == 'exit':
+            self.channel.send(b'logout\r\n')
+            self.channel.close()
+        else:
+            self.channel.send(f"bash: {command}: command not found\r\n".encode())
+
+
+
+    def _log_cmd(self, cmd):
+        """la methode log une commande"""
+        entry = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'ip': self.client_ip,
+            'type': 'command',
+            'command': cmd
+        }
+        
+        log_file = os.getenv('LOG_FILE', '/app/logs/honeypot.log')
+        with open(log_file, 'a') as f:
+            f.write(json.dumps(entry) + '\n')
+
+    
+
+def handle_client(client_socket, client_address):
+    """Gère une connexion client"""
+    client_ip = client_address[0]
+    
+    try:
+        # Setup SSH
+        transport = paramiko.Transport(client_socket)
+        host_key = paramiko.RSAKey.generate(2048)
+        transport.add_server_key(host_key)
+        
+        server = SSHHoneypot(client_ip)
+        transport.start_server(server=server)
+        
+        # Attendre un canal
+        channel = transport.accept(20)
+        if channel is None:
+            return
+        
+        # Démarrer le shell
+        server.event.wait()
+        shell = SimpleShell(channel, client_ip)
+        shell.start()
+    
+    except Exception as e:
+        logger.error(f"Erreur - {client_ip}: {e}")
+    finally:
+        try:
+            transport.close()
+        except:
+            pass
