@@ -68,3 +68,68 @@ class SSHHoneypot(paramiko.ServerInterface):
         
         with open(log_file, 'a') as f:
             f.write(json.dumps(entry) + '\n')
+
+
+class SimpleShell:
+    """Shell minimaliste -juste quelques commandes """
+
+    def __init__(self,channel,client_ip):
+        self.channel = channel
+        self.client_ip = client_ip
+        self.buffer = ""
+
+    def start(self):
+        """la methode lance le shell"""
+
+        # message de bienvenue
+
+        self.channel.send(b"Ubuntu 22.04 LTS\r\n\r\n")
+        self._prompt()
+
+        # boucle de lecture
+
+        while True:
+            try:
+                char = self.channel.recv(1)
+                if not char:
+                    break
+                
+                char = char.decode('utf-8', errors='replace')
+                
+                # Enter = exécuter la commande
+                if char in ['\r', '\n']:
+                    cmd = self.buffer.strip()
+                    if cmd:
+                        self._execute(cmd)
+                        self._log_cmd(cmd)
+                    self.buffer = ""
+                    self._prompt()
+                
+                # Backspace
+                elif char == '\x7f':
+                    if self.buffer:
+                        self.buffer = self.buffer[:-1]
+                        self.channel.send(b'\x08 \x08')
+                
+                # Ctrl+C
+                elif char == '\x03':
+                    self.channel.send(b'^C\r\n')
+                    self.buffer = ""
+                    self._prompt()
+                
+                # Ctrl+D = exit
+                elif char == '\x04':
+                    break
+                
+                # Caractère normal
+                else:
+                    self.buffer += char
+                    self.channel.send(char.encode())
+            
+            except:
+                break
+        
+        logger.info(f"Session terminée - {self.client_ip}")
+
+        
+
