@@ -183,7 +183,7 @@ class SimpleShell:
     
 
 def handle_client(client_socket, client_address):
-    """Gère une connexion client"""
+    """la fonction gere une connexion client"""
     client_ip = client_address[0]
     
     try:
@@ -212,3 +212,6 @@ def handle_client(client_socket, client_address):
             transport.close()
         except:
             pass
+
+
+
