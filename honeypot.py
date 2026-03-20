@@ -214,4 +214,38 @@ def handle_client(client_socket, client_address):
             pass
 
 
+def start_honeypot(host='0.0.0.0', port=2222):
+    """la fonction demarre le honeypot"""
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    
+    try:
+        server_socket.bind((host, port))
+        server_socket.listen(100)
+        
+        logger.info(f"🍯 Honeypot démarré sur {host}:{port}")
+        logger.info(f"📝 Logs: {os.getenv('LOG_FILE', '/app/logs/honeypot.log')}")
+        
+        while True:
+            client_socket, client_address = server_socket.accept()
+            logger.info(f"Connexion depuis {client_address[0]}")
+            
+            client_thread = threading.Thread(
+                target=handle_client,
+                args=(client_socket, client_address)
+            )
+            client_thread.daemon = True
+            client_thread.start()
+    
+    except KeyboardInterrupt:
+        logger.info("\nArrêt du honeypot")
+    finally:
+        server_socket.close()
+
+
+if __name__ == '__main__':
+    HOST = os.getenv('HONEYPOT_HOST', '0.0.0.0')
+    PORT = int(os.getenv('HONEYPOT_PORT', '2222'))
+    start_honeypot(HOST, PORT)
+
 
