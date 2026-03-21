@@ -34,3 +34,16 @@ class TestSSHHoneypot(unittest.TestCase):
         """la methode verifie linitialisation"""
         self.assertEqual(self.honeypot.client_ip, "203.0.113.42")
         self.assertFalse(self.honeypot.event.is_set())
+
+
+
+    def test_check_auth_password_refuses_always(self):
+        """la methode verifie que lauthentification est toujours refusee"""
+
+        result = self.honeypot.check_auth_password("root", "admin123")
+        self.assertEqual(result, paramiko.AUTH_FAILED)
+        
+        result = self.honeypot.check_auth_password("admin", "password")
+        self.assertEqual(result, paramiko.AUTH_FAILED)
+
+    
